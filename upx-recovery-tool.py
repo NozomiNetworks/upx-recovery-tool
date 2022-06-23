@@ -26,12 +26,12 @@ class l_info_s:
 
 
 class p_info_s:
-    p_progid: bytes # 00 00 00 00
+    #p_progid: bytes # 00 00 00 00
     p_filesize: bytes # Size of unpacked file
     p_blocksize: bytes # Size of unpacked file
 
     def __init__(self, buff):
-        self.p_progid = buff[0:4]
+        #self.p_progid = buff[0:4]
         self.p_filesize = buff[4:8]
         self.p_blocksize = buff[8:12]
         
@@ -232,12 +232,6 @@ class UpxRecoveryTool:
 
         # “p_info” is the size of the unpacked file. “p_info” and “p_filesize” contain the same value.
         # p_filesize is @ last UPX! sig offset + 24
-
-        # Check tampered p_progid 
-        if self.p_info.p_progid != b"\x00\x00\x00\x00":
-            print("[!] p_info.p_progid was tampered")
-            # Set p_progid = 00 00 00 00
-            self.patch(b"\x00\x00\x00\x00", self.p_info_off)
 
         # Zeroed sizes
         if self.p_info.p_filesize == b"\x00\x00\x00\x00" or self.p_info.p_blocksize == b"\x00\x00\x00\x00":

@@ -26,12 +26,12 @@ class l_info_s:
 
 
 class p_info_s:
-    #p_progid: bytes # 00 00 00 00
+    p_progid: bytes
     p_filesize: bytes # Size of unpacked file
     p_blocksize: bytes # Size of unpacked file
 
     def __init__(self, buff):
-        #self.p_progid = buff[0:4]
+        self.p_progid = buff[0:4]
         self.p_filesize = buff[4:8]
         self.p_blocksize = buff[8:12]
         

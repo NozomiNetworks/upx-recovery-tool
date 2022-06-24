@@ -80,30 +80,37 @@ class UpxRecoveryTool:
     def __init__(self, in_file, out_file):
         """ Initialization method. Receives the file to be read and the output path to write the fixed UPX """
         
+        self.in_fd = None
+        self.out_fd = None
         self.in_file = in_file
         self.out_file = out_file
 
-        # Check file type is ELF and arch is supported
-        self.check_file_type()
+        try:
+            # Check file type is ELF and arch is supported
+            self.check_file_type()
 
-        # File is ELF, so it can be parsed
-        self.in_fd = open(self.in_file, "rb")
-        self.elf = ELFFile(self.in_fd)
+            # File is ELF, so it can be parsed
+            self.in_fd = open(self.in_file, "rb")
+            self.elf = ELFFile(self.in_fd)
 
-        # Check if is UPX
-        if not self.is_upx():
-            raise NonUpxError
+            # Check if is UPX
+            if not self.is_upx():
+                raise NonUpxError
 
-        # Get UPX version. p_info fix doesn't work with UPX 4
-        self.detect_version()
+            # Get UPX version. p_info fix doesn't work with UPX 4
+            self.detect_version()
 
-        # All checks passed
-        shutil.copy(in_file, out_file)
+            # All checks passed
+            shutil.copy(in_file, out_file)
 
-        self.out_fd = open(out_file, "r+b")
-        self.buff = mmap.mmap(self.out_fd.fileno(), 0)
+            self.out_fd = open(out_file, "r+b")
+            self.buff = mmap.mmap(self.out_fd.fileno(), 0)
 
-        self.load_structs()
+            self.load_structs()
+
+        finally:
+            if self.in_fd is not None:
+                self.in_fd.close()
 
     def check_file_type(self):
         """ Method to check if the class will be able to analyze this type of file """
@@ -201,7 +208,6 @@ class UpxRecoveryTool:
             self.buff.close()
 
             # Close file descriptors
-            self.in_fd.close()
             self.out_fd.close()
 
     def fix_l_info(self):

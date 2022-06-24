@@ -143,10 +143,9 @@ class UpxRecoveryTool:
 
         # Load file in memory to look for string with version
         self.in_fd.seek(0)
-        in_buff = mmap.mmap(self.in_fd.fileno(), 0, access=mmap.ACCESS_READ)
+        in_buff = self.in_fd.read()
 
         # Detect UPX version
-        #if in_buff.find(b"$Id: UPX 4.00") != -1:
         version_off = in_buff.find(b"$Id: UPX ")
         if version_off == -1:
             print("[!] UPX version could not be detected")
@@ -154,8 +153,6 @@ class UpxRecoveryTool:
         else:
             self.version = int(in_buff[version_off + 9: version_off + 10])
             # TODO: Use 're' to get major and minor version
-
-        in_buff.close()
 
     def load_structs(self):
 

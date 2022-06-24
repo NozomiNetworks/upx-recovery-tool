@@ -100,14 +100,6 @@ class UpxRecoveryTool:
             # Get UPX version. p_info fix doesn't work with UPX 4
             self.detect_version()
 
-            # All checks passed
-            shutil.copy(in_file, out_file)
-
-            self.out_fd = open(out_file, "r+b")
-            self.buff = mmap.mmap(self.out_fd.fileno(), 0)
-
-            self.load_structs()
-
         finally:
             if self.in_fd is not None:
                 self.in_fd.close()
@@ -197,6 +189,13 @@ class UpxRecoveryTool:
         """ Method to fix all the (supported) modifications to UPX """
 
         try:
+            shutil.copy(self.in_file, self.out_file)
+
+            self.out_fd = open(self.out_file, "r+b")
+            self.buff = mmap.mmap(self.out_fd.fileno(), 0)
+
+            self.load_structs()
+
             self.fix_l_info()
 
             if self.version != 4:
@@ -207,7 +206,7 @@ class UpxRecoveryTool:
             self.buff.flush()
             self.buff.close()
 
-            # Close file descriptors
+            # Close file descriptor
             self.out_fd.close()
 
     def fix_l_info(self):

@@ -10,6 +10,18 @@ import argparse
 from elftools.elf.elffile import ELFFile
 
 
+class UnsupportedFileError(Exception):
+    pass
+
+
+class NonUpxError(Exception):
+    pass
+
+
+class CorruptedFileError(Exception):
+    pass
+
+
 class l_info_s:
     l_checksum: bytes # checksum
     l_magic: bytes # UPX! magic[55 50 58 21]
@@ -36,16 +48,23 @@ class p_info_s:
         self.p_blocksize = buff[8:12]
         
 
-class UnsupportedFileError(Exception):
-    pass
+class PackHeader:
+    u_file_size: bytes
 
+    def __init__(self, file_mmap):
+        ph_offset = file_mmap.rfind(b"UPX!")
 
-class NonUpxError(Exception):
-    pass
+        if ph_offset > file_mmap.size() - 36:
+            raise CorruptedFileError("Parsing PackHeader")
 
+        elif ph_offset < file_mmap.size() - 36:
+            overlay_count = file_mmap.size() - 36 - ph_offset
+            print("[!] Possible error parsing PackHeader:")
+            print("    - Maybe not all UPX! magic bytes could be found")
+            print(f"    - Or input file may contain {overlay_count} bytes of overlay")
 
-class CorruptedFileError(Exception):
-    pass
+        size_offset = ph_offset + 24
+        self.u_file_size = file_mmap[size_offset: size_offset + 4]
 
 
 class UpxRecoveryTool:
@@ -102,7 +121,6 @@ class UpxRecoveryTool:
         
         # Check if is UPX
         if not self.is_upx():
-            self.close()
             raise NonUpxError
 
         # Get UPX version. p_info fix doesn't work with UPX 4
@@ -112,7 +130,6 @@ class UpxRecoveryTool:
         """ Method to check if the class will be able to analyze this type of file """
 
         if not os.path.isfile(self.in_file):
-            self.close()
             raise UnsupportedFileError("Is not a file")
 
         # Check magic filetype
@@ -126,7 +143,6 @@ class UpxRecoveryTool:
                 self.arch = magic_arch
                 return
 
-        self.close()
         raise UnsupportedFileError(f"Unsupported file type '{magic_str}'")
 
     def is_upx(self):
@@ -211,21 +227,21 @@ class UpxRecoveryTool:
     def fix(self):
         """ Method to fix all the (supported) modifications to UPX """
 
-        try:
-            shutil.copy(self.in_file, self.out_file)
+        shutil.copy(self.in_file, self.out_file)
 
-            self.out_fd = open(self.out_file, "r+b")
-            self.buff = mmap.mmap(self.out_fd.fileno(), 0)
+        self.out_fd = open(self.out_file, "r+b")
+        self.buff = mmap.mmap(self.out_fd.fileno(), 0)
 
-            self.load_structs()
+        self.load_structs()
 
-            self.fix_l_info()
+        self.fix_l_info()
 
-            if self.version != 4:
-                self.fix_p_info()
+        # Now that UPX! magic bytes are restored, PackHeader can be properly loaded
+        self.pack_hdr = PackHeader(self.buff)
 
-        finally:
-            self.close()
+        if self.version != 4:
+            self.fix_p_info()
+
 
     def fix_l_info(self):
         """ Method to check and fix modifications of l_info structure """
@@ -274,21 +290,13 @@ class UpxRecoveryTool:
     def fix_p_info_sizes(self):
         """ Method to fix the p_info.p_filesize and p_info.p_blocksize values """
 
-        # At this point, UPX! magic values are already fixed
-        # p_filesize is @ last UPX! sig last byte + 24
-
-        # Look for last UPX! magic value
-        last_offset = self.buff.rfind(b"UPX!")
-        size_offset = last_offset + 24
-        real_size = self.buff[size_offset: size_offset + 4]
-
         # p_filesize
-        self.patch(real_size, self.p_info_off + 4)
+        self.patch(self.pack_hdr.u_file_size, self.p_info_off + 4)
         # p_blocksize
-        self.patch(real_size, self.p_info_off + 8)
+        self.patch(self.pack_hdr.u_file_size, self.p_info_off + 8)
 
-        int_size = struct.unpack("<i", real_size)[0]
-        print(f"  [i] Fixed p_info sizes with value 0x{int_size:x}")
+        int_size = struct.unpack("<i", self.pack_hdr.u_file_size)[0]
+        print(f"  [i] Fixed p_info sizes with value 0x{int_size:x} from PackHeader")
 
     def close(self):
         """ Method to close memory buffers and file descriptors """
@@ -321,3 +329,10 @@ if __name__ == "__main__":
 
     except NonUpxError:
         print(f"[-] {args.input} doesn't seem to be an UPX file")
+
+    except CorruptedFileError as why:
+        print(f"[-] The input file could be corrupted. Error while {why}")
+
+    finally:
+        if urt is not None:
+            urt.close()

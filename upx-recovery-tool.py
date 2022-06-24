@@ -82,32 +82,30 @@ class UpxRecoveryTool:
         
         self.in_fd = None
         self.out_fd = None
+        self.buff = None
         self.in_file = in_file
         self.out_file = out_file
 
-        try:
-            # Check file type is ELF and arch is supported
-            self.check_file_type()
+        # Check file type is ELF and arch is supported
+        self.check_file_type()
 
-            # File is ELF, so it can be parsed
-            self.in_fd = open(self.in_file, "rb")
-            self.elf = ELFFile(self.in_fd)
+        # File is ELF, so it can be parsed
+        self.in_fd = open(self.in_file, "rb")
+        self.elf = ELFFile(self.in_fd)
 
-            # Check if is UPX
-            if not self.is_upx():
-                raise NonUpxError
+        # Check if is UPX
+        if not self.is_upx():
+            self.close()
+            raise NonUpxError
 
-            # Get UPX version. p_info fix doesn't work with UPX 4
-            self.detect_version()
-
-        finally:
-            if self.in_fd is not None:
-                self.in_fd.close()
+        # Get UPX version. p_info fix doesn't work with UPX 4
+        self.detect_version()
 
     def check_file_type(self):
         """ Method to check if the class will be able to analyze this type of file """
 
         if not os.path.isfile(self.in_file):
+            self.close()
             raise UnsupportedFileError("Is not a file")
 
         # Check magic filetype
@@ -121,6 +119,7 @@ class UpxRecoveryTool:
                 self.arch = magic_arch
                 return
 
+        self.close()
         raise UnsupportedFileError(f"Unsupported file type '{magic_str}'")
 
     def is_upx(self):
@@ -202,12 +201,7 @@ class UpxRecoveryTool:
                 self.fix_p_info()
 
         finally:
-            # Close mmap
-            self.buff.flush()
-            self.buff.close()
-
-            # Close file descriptor
-            self.out_fd.close()
+            self.close()
 
     def fix_l_info(self):
         """ Method to check and fix modifications of l_info structure """
@@ -271,6 +265,20 @@ class UpxRecoveryTool:
 
         int_size = struct.unpack("<i", real_size)[0]
         print(f"  [i] Fixed p_info sizes with value 0x{int_size:x}")
+
+    def close(self):
+        """ Method to close memory buffers and file descriptors """
+        # Close mmap
+        if self.buff is not None:
+            self.buff.flush()
+            self.buff.close()
+
+        # Close file descriptors
+        if self.in_fd is not None:
+            self.in_fd.close()
+
+        if self.out_fd is not None:
+            self.out_fd.close()
 
 
 if __name__ == "__main__":

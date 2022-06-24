@@ -44,6 +44,10 @@ class NonUpxError(Exception):
     pass
 
 
+class CorruptedFileError(Exception):
+    pass
+
+
 class UpxRecoveryTool:
 
     upx_sigs = {
@@ -93,6 +97,9 @@ class UpxRecoveryTool:
         self.in_fd = open(self.in_file, "rb")
         self.elf = ELFFile(self.in_fd)
 
+        # Get file size for boudaries checks
+        self.file_size = os.fstat(self.in_fd.fileno()).st_size
+        
         # Check if is UPX
         if not self.is_upx():
             self.close()
@@ -158,14 +165,27 @@ class UpxRecoveryTool:
 
         # l_info
         self.l_info_off = eh.e_phoff + eh.e_phnum * eh.e_phentsize
-        self.l_info = l_info_s(self.buff[self.l_info_off: self.l_info_off + 12])
+
+        if self.l_info_off + 12 > self.file_size:
+            raise CorruptedFileError("Parsing l_info structure")
+
+        l_info_mem = self.buff[self.l_info_off: self.l_info_off + 12]
+        self.l_info = l_info_s(l_info_mem)
 
         # p_info
         self.p_info_off = self.l_info_off + 12
-        self.p_info = p_info_s(self.buff[self.p_info_off: self.p_info_off + 12])
+
+        if self.p_info_off + 12 > self.file_size:
+            raise CorruptedFileError("Parsing p_info structure")
+
+        p_info_mem = self.buff[self.p_info_off: self.p_info_off + 12]
+        self.p_info = p_info_s(p_info_mem)
 
     def patch(self, patch_bytes, offset):
         """ Method to patch bytes in the output binary """
+
+        if offset + len(patch_bytes) > self.file_size:
+            raise CorruptedFileError("Patching bytes")
 
         self.buff[offset: offset + len(patch_bytes)] = patch_bytes
 
@@ -180,6 +200,10 @@ class UpxRecoveryTool:
             sh = seg.header
             if ep > sh.p_vaddr and ep < sh.p_vaddr + sh.p_memsz:
                 start_off = ep - sh.p_vaddr
+
+                if start_off + num_bytes > self.file_size:
+                    raise CorruptedFileError("Walking throug program headers")
+
                 ep_bytes = seg.data()[start_off: start_off + num_bytes]
 
         return ep_bytes

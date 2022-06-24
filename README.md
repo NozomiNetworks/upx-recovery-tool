@@ -11,6 +11,6 @@ This tool detects and repairs these common modifications to:
 
 ### Dependencies
 
-The script requires the next libraries:
+The script requires the next libraries listed on `requirements.txt`:
 
 - [`elftools`](https://github.com/eliben/pyelftools)

@@ -320,6 +320,8 @@ if __name__ == "__main__":
     parser.add_argument('-o', dest='output', required=True, help="Path to write the fixed version of the file")
     args = parser.parse_args()
 
+    urt = None
+
     try:
         urt = UpxRecoveryTool(args.input, args.output)
         urt.fix()

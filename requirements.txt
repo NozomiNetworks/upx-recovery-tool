@@ -1,0 +1,2 @@
+pyelftools==0.28
+python-magic==0.4.27

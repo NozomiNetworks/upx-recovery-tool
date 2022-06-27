@@ -39,8 +39,8 @@ class l_info_s:
 
 class p_info_s:
     p_progid: bytes
-    p_filesize: bytes # Size of unpacked file
-    p_blocksize: bytes # Size of unpacked file
+    p_filesize: bytes # Size of the unpacked file
+    p_blocksize: bytes # Size of the unpacked file
 
     def __init__(self, buff):
         self.p_progid = buff[0:4]
@@ -101,7 +101,7 @@ class UpxRecoveryTool:
     }
 
     def __init__(self, in_file, out_file):
-        """ Initialization method. Receives the file to be read and the output path to write the fixed UPX """
+        """ Initialization method. Receives the path to the file to be fixed and the output path for the result """
         
         self.in_fd = None
         self.out_fd = None
@@ -109,7 +109,7 @@ class UpxRecoveryTool:
         self.in_file = in_file
         self.out_file = out_file
 
-        # Check file type is ELF and arch is supported
+        # Check that the file type is ELF and that the arch is supported
         self.check_file_type()
 
         # File is ELF, so it can be parsed
@@ -119,7 +119,7 @@ class UpxRecoveryTool:
         # Get file size for boudaries checks
         self.file_size = os.fstat(self.in_fd.fileno()).st_size
         
-        # Check if is UPX
+        # Check if it is packed with UPX
         if not self.is_upx():
             raise NonUpxError
 
@@ -127,10 +127,10 @@ class UpxRecoveryTool:
         self.detect_version()
 
     def check_file_type(self):
-        """ Method to check if the class will be able to analyze this type of file """
+        """ Method to check if the class will be able to analyze this file """
 
         if not os.path.isfile(self.in_file):
-            raise UnsupportedFileError("Is not a file")
+            raise UnsupportedFileError("No input file provided")
 
         # Check magic filetype
         magic_str = magic.from_file(self.in_file)
@@ -146,10 +146,10 @@ class UpxRecoveryTool:
         raise UnsupportedFileError(f"Unsupported file type '{magic_str}'")
 
     def is_upx(self):
-        """ Method that looks for ASM signatures to identify an UPX executable """
+        """ Method that looks for ASM signatures to identify a UPX executable """
 
         # Instead of looking for the pattern in all the executable bytes, look for the
-        # UPX sigs in the EP. The code is not so beauty, but it'll be more efficient.
+        # UPX sigs at the EP. The code is not so beautiful but it'll be more efficient.
         ep_bytes = self.get_ep_bytes(50)
 
         for sig in self.upx_sigs[self.arch]:
@@ -160,10 +160,10 @@ class UpxRecoveryTool:
         return False
 
     def detect_version(self):
-        """ Method to know the UPX version used to pack the executable """
+        """ Method to identify the UPX version used to pack the executable """
         # TODO: The current detection method is very naive and can be easily tricked
 
-        # Load file in memory to look for string with version
+        # Load file in memory to look for a string with a version
         self.in_fd.seek(0)
         in_buff = self.in_fd.read()
 
@@ -207,7 +207,7 @@ class UpxRecoveryTool:
         self.buff[offset: offset + len(patch_bytes)] = patch_bytes
 
     def get_ep_bytes(self, num_bytes):
-        """ Method to get the first 'num_bytes' of the executable's Entry Point. Used to detect UPX signatures """
+        """ Method to get the first 'num_bytes' of the executable's Entry Point. Used to apply UPX signatures """
         
         ep_bytes = None
         ep = self.elf.header['e_entry']
@@ -219,14 +219,14 @@ class UpxRecoveryTool:
                 start_off = ep - sh.p_vaddr
 
                 if start_off + num_bytes > self.file_size:
-                    raise CorruptedFileError("Walking throug program headers")
+                    raise CorruptedFileError("Walking through the program headers")
 
                 ep_bytes = seg.data()[start_off: start_off + num_bytes]
 
         return ep_bytes
 
     def fix(self):
-        """ Method to fix all the (supported) modifications to UPX """
+        """ Method to fix all the (supported) modifications of UPX """
 
         shutil.copy(self.in_file, self.out_file)
 
@@ -268,7 +268,7 @@ class UpxRecoveryTool:
             print("  [i] No l_info fixes required")
 
         # Worst case: Different l_magic used along the file
-        # It is also possible check magic at the end of the file
+        # It is also possible to check the magic value at the end of the file
         #last_magic_offset = len(self.buff)-36
         #mod_upx_magic = self.buff[last_magic_offset:last_magic_offset+4]
 
@@ -347,7 +347,7 @@ if __name__ == "__main__":
         print(f"[-] Unsupported file '{args.input}': {why}")
 
     except NonUpxError:
-        print(f"[-] {args.input} doesn't seem to be an UPX file")
+        print(f"[-] {args.input} doesn't seem to be a UPX-packed file")
 
     except CorruptedFileError as why:
         print(f"[-] The input file could be corrupted. Error while {why}")

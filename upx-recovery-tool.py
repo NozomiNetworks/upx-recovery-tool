@@ -154,6 +154,7 @@ class UpxRecoveryTool:
 
         for sig in self.upx_sigs[self.arch]:
             if re.match(sig, ep_bytes, re.DOTALL):
+                print("[i] File is UPX")
                 return True
 
         return False

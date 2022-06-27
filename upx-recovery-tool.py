@@ -7,6 +7,7 @@ import magic
 import shutil
 import struct
 import argparse
+import tempfile
 from elftools.elf.elffile import ELFFile
 
 
@@ -104,10 +105,12 @@ class UpxRecoveryTool:
         """ Initialization method. Receives the path to the file to be fixed and the output path for the result """
         
         self.in_fd = None
-        self.out_fd = None
+        self.tmp_fd = None
         self.buff = None
         self.in_file = in_file
         self.out_file = out_file
+        self.tmp_file = None
+        self.tmp_folder = None
 
         # Check that the file type is ELF and that the arch is supported
         self.check_file_type()
@@ -228,21 +231,27 @@ class UpxRecoveryTool:
     def fix(self):
         """ Method to fix all the (supported) modifications of UPX """
 
-        shutil.copy(self.in_file, self.out_file)
+        fixed = False
 
-        self.out_fd = open(self.out_file, "r+b")
-        self.buff = mmap.mmap(self.out_fd.fileno(), 0)
+        self.tmp_folder = tempfile.TemporaryDirectory()
+        self.tmp_file = os.path.join(self.tmp_folder.name, os.path.basename(self.out_file))
+        shutil.copy(self.in_file, self.tmp_file)
+
+        self.tmp_fd = open(self.tmp_file, "r+b")
+        self.buff = mmap.mmap(self.tmp_fd.fileno(), 0)
 
         self.load_structs()
 
-        self.fix_l_info()
+        fixed |= self.fix_l_info()
 
         # Now that UPX! magic bytes are restored, PackHeader can be properly loaded
         self.pack_hdr = PackHeader(self.buff)
 
         if self.version != 4:
-            self.fix_p_info()
+            fixed |= self.fix_p_info()
 
+        if fixed:
+            shutil.copy(self.tmp_file, self.out_file)
 
     def fix_l_info(self):
         """ Method to check and fix modifications of l_info structure """
@@ -266,6 +275,8 @@ class UpxRecoveryTool:
 
         if not fixed:
             print("  [i] No l_info fixes required")
+
+        return fixed
 
         # Worst case: Different l_magic used along the file
         # It is also possible to check the magic value at the end of the file
@@ -301,6 +312,8 @@ class UpxRecoveryTool:
         if not fixed:
             print("  [i] No p_info fixes required")
 
+        return fixed
+
         # TODO: Same values but non-sense size
         # This could happen with UPXv4, but this kind of files shouldn't reach this point
 
@@ -326,8 +339,11 @@ class UpxRecoveryTool:
         if self.in_fd is not None:
             self.in_fd.close()
 
-        if self.out_fd is not None:
-            self.out_fd.close()
+        if self.tmp_fd is not None:
+            self.tmp_fd.close()
+
+        # Remove temporary file and dir
+        self.tmp_folder.cleanup()
 
 
 if __name__ == "__main__":

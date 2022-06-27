@@ -24,11 +24,11 @@ class CorruptedFileError(Exception):
 
 
 class l_info_s:
-    l_checksum: bytes # checksum
-    l_magic: bytes # UPX! magic[55 50 58 21]
-    l_lsize: bytes # loader size
-    l_version: bytes # version info
-    l_format: bytes # UPX format
+    l_checksum: bytes  # checksum
+    l_magic: bytes  # UPX! magic[55 50 58 21]
+    l_lsize: bytes  # loader size
+    l_version: bytes  # version info
+    l_format: bytes  # UPX format
 
     def __init__(self, buff):
         self.l_checksum = buff[0:4]
@@ -40,14 +40,14 @@ class l_info_s:
 
 class p_info_s:
     p_progid: bytes
-    p_filesize: bytes # Size of the unpacked file
-    p_blocksize: bytes # Size of the unpacked file
+    p_filesize: bytes  # Size of the unpacked file
+    p_blocksize: bytes  # Size of the unpacked file
 
     def __init__(self, buff):
         self.p_progid = buff[0:4]
         self.p_filesize = buff[4:8]
         self.p_blocksize = buff[8:12]
-        
+
 
 class PackHeader:
     u_file_size: bytes
@@ -103,7 +103,7 @@ class UpxRecoveryTool:
 
     def __init__(self, in_file, out_file):
         """ Initialization method. Receives the path to the file to be fixed and the output path for the result """
-        
+
         self.in_fd = None
         self.tmp_fd = None
         self.buff = None
@@ -121,7 +121,7 @@ class UpxRecoveryTool:
 
         # Get file size for boudaries checks
         self.file_size = os.fstat(self.in_fd.fileno()).st_size
-        
+
         # Check if it is packed with UPX
         if not self.is_upx():
             raise NonUpxError
@@ -137,7 +137,7 @@ class UpxRecoveryTool:
 
         # Check magic filetype
         magic_str = magic.from_file(self.in_file)
-        
+
         if magic_str.startswith("ELF "):
             self.exe_type = "ELF"
             magic_arch = magic_str.split(',')[1].strip()
@@ -211,7 +211,7 @@ class UpxRecoveryTool:
 
     def get_ep_bytes(self, num_bytes):
         """ Method to get the first 'num_bytes' of the executable's Entry Point. Used to apply UPX signatures """
-        
+
         ep_bytes = None
         ep = self.elf.header['e_entry']
 
@@ -260,7 +260,7 @@ class UpxRecoveryTool:
 
         print("[i] Checking l_info structure...")
 
-        # Check and fix l_magic (UPX!) modification 
+        # Check and fix l_magic (UPX!) modification
         if self.l_info.l_magic != b"UPX!":
             fixed = True
             print(f'[!] l_info.l_magic mismatch: "{self.l_info.l_magic}" found instead')
@@ -280,8 +280,8 @@ class UpxRecoveryTool:
 
         # Worst case: Different l_magic used along the file
         # It is also possible to check the magic value at the end of the file
-        #last_magic_offset = len(self.buff)-36
-        #mod_upx_magic = self.buff[last_magic_offset:last_magic_offset+4]
+        # last_magic_offset = len(self.buff)-36
+        # mod_upx_magic = self.buff[last_magic_offset:last_magic_offset+4]
 
     def fix_p_info(self):
         """ Method to check and fix modifications of p_info structure """
@@ -300,7 +300,7 @@ class UpxRecoveryTool:
                 print("[!] Zeroed p_info.p_filesize")
             if self.p_info.p_blocksize == b"\x00\x00\x00\x00":
                 print("[!] Zeroed p_info.p_blocksize")
-            
+
             self.fix_p_info_sizes()
 
         # Size mismatch
@@ -358,7 +358,7 @@ if __name__ == "__main__":
     try:
         urt = UpxRecoveryTool(args.input, args.output)
         urt.fix()
-    
+
     except UnsupportedFileError as why:
         print(f"[-] Unsupported file '{args.input}': {why}")
 

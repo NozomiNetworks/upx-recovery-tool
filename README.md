@@ -6,7 +6,7 @@ files done to prevent their automatic unpacking with a standard UPX tool.
 ## Implemented UPX fixes / Features
 
 This tool detects and repairs the following common modifications:
-- 'l_magic` field of the `l_info` structure (`UPX!` magic value)
+- `l_magic` field of the `l_info` structure (`UPX!` magic value)
 - `p_filesize` and `p_blocksize` fields of the `p_info` structure
 
 ### Dependencies

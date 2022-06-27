@@ -246,8 +246,13 @@ class UpxRecoveryTool:
     def fix_l_info(self):
         """ Method to check and fix modifications of l_info structure """
 
+        fixed = False
+
+        print("[i] Checking l_info structure...")
+
         # Check and fix l_magic (UPX!) modification 
         if self.l_info.l_magic != b"UPX!":
+            fixed = True
             print(f'[!] l_info.l_magic mismatch: "{self.l_info.l_magic}" found instead')
 
             # Replace all modified l_magic bytes
@@ -257,6 +262,9 @@ class UpxRecoveryTool:
                 self.patch(b"UPX!", magic_offset)
                 print(f"  [i] UPX! magic bytes patched @ 0x{magic_offset:x}")
                 magic_offset = self.buff.find(self.l_info.l_magic, magic_offset + 4)
+
+        if not fixed:
+            print("  [i] No l_info fixes required")
 
         # Worst case: Different l_magic used along the file
         # It is also possible check magic at the end of the file
@@ -269,9 +277,13 @@ class UpxRecoveryTool:
         # “p_info” is the size of the unpacked file. “p_info” and “p_filesize” contain the same value.
         # p_filesize is @ last UPX! sig offset + 24
 
+        fixed = False
+
+        print("[i] Checking p_info structure...")
+
         # Zeroed sizes
         if self.p_info.p_filesize == b"\x00\x00\x00\x00" or self.p_info.p_blocksize == b"\x00\x00\x00\x00":
-
+            fixed = True
             if self.p_info.p_filesize == b"\x00\x00\x00\x00":
                 print("[!] Zeroed p_info.p_filesize")
             if self.p_info.p_blocksize == b"\x00\x00\x00\x00":
@@ -281,8 +293,12 @@ class UpxRecoveryTool:
 
         # Size mismatch
         if self.p_info.p_filesize != self.p_info.p_blocksize:
+            fixed = True
             print("[!] p_info.p_filesize and p_info.p_blocksize mismatch")
             self.fix_p_info_sizes()
+
+        if not fixed:
+            print("  [i] No p_info fixes required")
 
         # TODO: Same values but non-sense size
         # This could happen with UPXv4, but this kind of files shouldn't reach this point

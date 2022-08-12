@@ -8,6 +8,7 @@ files done to prevent their automatic unpacking with a standard UPX tool.
 This tool detects and repairs the following common modifications:
 - `l_magic` field of the `l_info` structure (`UPX!` magic value)
 - `p_filesize` and `p_blocksize` fields of the `p_info` structure
+- Overlay bytes
 
 ### Dependencies
 

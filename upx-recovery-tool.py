@@ -228,6 +228,26 @@ class UpxRecoveryTool:
 
         return ep_bytes
 
+    def get_overlay_size(self):
+        """ Method to check if it seems that the file contains overlay data after a proper PackHeader """
+
+        overlay_size = 0
+        upx_count = 0
+
+        upx_offset = self.buff.find(b"UPX!", 0)
+
+        while upx_offset != -1:
+            upx_count += 1
+            last_upx_offset = upx_offset
+            upx_offset = self.buff.find(b"UPX!", upx_offset + 4)
+
+        # If there are less than 3 UPX! sigs, we can't be sure the PackHeader can be easily found
+        if upx_count >= 3:
+            if last_upx_offset < self.buff.size() - 36:
+                overlay_size = self.buff.size() - 36 - last_upx_offset
+
+        return overlay_size
+
     def fix(self):
         """ Method to fix all the (supported) modifications of UPX """
 
@@ -246,6 +266,8 @@ class UpxRecoveryTool:
 
         # Now that UPX! magic bytes are restored, PackHeader can be properly loaded
         self.pack_hdr = PackHeader(self.buff)
+
+        fixed |= self.fix_overlay()
 
         if self.version != 4:
             fixed |= self.fix_p_info()
@@ -327,6 +349,23 @@ class UpxRecoveryTool:
 
         int_size = struct.unpack("<i", self.pack_hdr.u_file_size)[0]
         print(f"  [i] Fixed p_info sizes with value 0x{int_size:x} from PackHeader")
+
+    def fix_overlay(self):
+        """ Method to crop the file to remove overlay bytes  """
+
+        fixed = False
+
+        overlay_size = self.get_overlay_size()
+        if overlay_size > 0:
+            new_size = self.buff.size() - overlay_size
+            print(f"[i] Removing {overlay_size} bytes of overlay")
+
+            # self.buff.resize may fail on BSD and Mac
+            self.tmp_fd.truncate(new_size)
+
+            fixed = True
+
+        return fixed
 
     def close(self):
         """ Method to close memory buffers and file descriptors """

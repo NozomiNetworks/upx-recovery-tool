@@ -14,5 +14,5 @@ This tool detects and repairs the following common modifications:
 
 The script requires the following libraries listed on `requirements.txt`:
 
-- [`elftools`](https://github.com/eliben/pyelftools)
+- [`lief`](https://lief-project.github.io)
 - [`python-magic`](https://pypi.org/project/python-magic/)

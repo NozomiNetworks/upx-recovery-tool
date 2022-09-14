@@ -2,13 +2,13 @@
 
 import os
 import re
+import lief
 import mmap
 import magic
 import shutil
 import struct
 import argparse
 import tempfile
-from elftools.elf.elffile import ELFFile
 
 
 class UnsupportedFileError(Exception):
@@ -117,7 +117,7 @@ class UpxRecoveryTool:
 
         # File is ELF, so it can be parsed
         self.in_fd = open(self.in_file, "rb")
-        self.elf = ELFFile(self.in_fd)
+        self.elf = lief.parse(self.in_file)
 
         # Get file size for boudaries checks
         self.file_size = os.fstat(self.in_fd.fileno()).st_size
@@ -184,7 +184,7 @@ class UpxRecoveryTool:
         eh = self.elf.header
 
         # l_info
-        self.l_info_off = eh.e_phoff + eh.e_phnum * eh.e_phentsize
+        self.l_info_off = eh.program_header_offset + eh.numberof_segments * eh.program_header_size
 
         if self.l_info_off + 12 > self.file_size:
             raise CorruptedFileError("Parsing l_info structure")
@@ -212,19 +212,8 @@ class UpxRecoveryTool:
     def get_ep_bytes(self, num_bytes):
         """ Method to get the first 'num_bytes' of the executable's Entry Point. Used to apply UPX signatures """
 
-        ep_bytes = None
-        ep = self.elf.header['e_entry']
-
-        # Loop segments looking where the EP is
-        for seg in self.elf.iter_segments():
-            sh = seg.header
-            if ep > sh.p_vaddr and ep < sh.p_vaddr + sh.p_memsz:
-                start_off = ep - sh.p_vaddr
-
-                if start_off + num_bytes > self.file_size:
-                    raise CorruptedFileError("Walking through the program headers")
-
-                ep_bytes = seg.data()[start_off: start_off + num_bytes]
+        ep_bytes_list = self.elf.get_content_from_virtual_address(self.elf.entrypoint, num_bytes)
+        ep_bytes = bytearray(ep_bytes_list)
 
         return ep_bytes
 

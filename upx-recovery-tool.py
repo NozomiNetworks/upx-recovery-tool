@@ -101,7 +101,7 @@ class UpxRecoveryTool:
         ],
     }
 
-    def __init__(self, in_file, out_file):
+    def __init__(self, in_file, out_file, assume_upx):
         """ Initialization method. Receives the path to the file to be fixed and the output path for the result """
 
         self.in_fd = None
@@ -122,9 +122,12 @@ class UpxRecoveryTool:
         # Get file size for boudaries checks
         self.file_size = os.fstat(self.in_fd.fileno()).st_size
 
-        # Check if it is packed with UPX
-        if not self.is_upx():
-            raise NonUpxError
+        if not assume_upx:
+            # Check if it is packed with UPX
+            if not self.is_upx():
+                raise NonUpxError
+        else:
+            print("[i] Assuming file is UPX")
 
         # Get UPX version. p_info fix doesn't work with UPX 4
         self.detect_version()
@@ -379,12 +382,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Script to check and fix UPX files modifications")
     parser.add_argument('-i', dest='input', required=True, help="Path to supposed UPX file to be fixed")
     parser.add_argument('-o', dest='output', required=True, help="Path to write the fixed version of the file")
+    parser.add_argument('-a', '--assume-upx', action='store_true', help=f"Assume file is UPX. Use it when \
+        {parser.prog} doesn't detect the input as UPX and you think it is wrong.")
     args = parser.parse_args()
 
     urt = None
 
     try:
-        urt = UpxRecoveryTool(args.input, args.output)
+        urt = UpxRecoveryTool(args.input, args.output, args.assume_upx)
         urt.fix()
 
     except UnsupportedFileError as why:

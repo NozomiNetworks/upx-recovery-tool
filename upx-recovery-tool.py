@@ -3,6 +3,7 @@
 import os
 import re
 import mmap
+import yara
 import magic
 import shutil
 import struct
@@ -71,34 +72,11 @@ class PackHeader:
 class UpxRecoveryTool:
 
     upx_sigs = {
-        "Intel 80386": [
-            br"^\x50\xe8.{2}\x00\x00\xeb.\x5a\x58\x59\x97\x60\x8a\x54\x24\x20\xe9.{2}\x00\x00\x60\x8b\x74\x24\x24\x8b\x7c\x24\x2c\x83\xcd",
-        ],
-        "x86-64": [
-            # ucl
-            br"^\x50\x52\xe8.{4}\x55\x53\x51\x52\x48\x01\xfe\x56\x48\x89\xfe\x48\x89\xd7\x31\xdb\x31\xc9\x48\x83\xcd\xff\xe8",
-            # lzma
-            br"^\x50\x52\xe8.{4}\x55\x53\x51\x52\x48\x01\xfe\x56\x41\x80\xf8\x0e\x0f.{5}\x55\x48\x89\xe5\x44\x8b\x09",
-        ],
-        "MIPS": [
-            # upx_mips_be
-            br"^\x04\x11.{2}\x27\xfe\x00\x00\x27\xbd\xff\xfc\xaf\xbf\x00\x00\x00\xa4\x28\x20\xac\xe6\x00\x00\x3c\x0d\x80\x00\x01\xa0\x48\x21\x24\x0b\x00\x01\x04\x11",
-            br"^\x04\x11.{2}\x27\xf7\x00\x00\x90\x99\x00\x00\x24\x01\xfa\x00\x90\x98\x00\x01\x33\x22\x00\x07\x00\x19\xc8\xc2\x03\x21\x08\x04",
-            # upx_mips_le
-            br"^.{2}\x11\x04\x00\x00\xfe\x27\xfc\xff\xbd\x27\x00\x00\xbf\xaf\x20\x28\xa4\x00\x00\x00\xe6\xac\x00\x80\x0d\x3c\x21\x48\xa0\x01\x01\x00\x0b\x24.{2}\x11\x04",
-            br"^.{2}\x11\x04\x00\x00\xf7\x27\x00\x00\x99\x90\x00\xfa\x01\x24\x01\x00\x98\x90\x07\x00\x22\x33\xc2\xc8\x19\x00\x04\x08\x21\x03",
-        ],
-        "ARM": [
-            br"^\x1c\xc0\x4f\xe2.{2}\x9c\xe8\x02\x00\xa0\xe1\x0c\xb0\x8b\xe0\x0c\xa0\x8a\xe0\x00\x30\x9b\xe5\x01\x90\x4c\xe0\x01\x20\xa0\xe1",
-            br"^\x18\xd0\x4d\xe2.{2}\x00\xeb\x00\xc0\xdd\xe5\x0e\x00\x5c\xe3.\x02\x00\x1a\x0c\x48\x2d\xe9\x00\xb0\xd0\xe5\x06\xcc\xa0\xe3",
-            br"^\x18\xd0\x4d\xe2.{2}\x00\xeb\x00\x10\x81\xe0\x3e\x40\x2d\xe9\x00\x50\xe0\xe3\x02\x41\xa0\xe3.{2}\x00\xea\x1a\x00\xbd\xe8",
-        ],
-        "PowerPC or cisco 4500": [
-            # ucl
-            br"^\x48\x00.{2}\x7c\x00\x29\xec\x7d\xa8\x02\xa6\x28\x07\x00\x02\x40\x82\x00\xe4\x90\xa6\x00\x00",
-            # lzma
-            br"^\x48\x00.{2}\x28\x07\x00\x0e\x40\x82\x0a\x4c\x94\x21\xff\xe8\x7c\x08\x02\xa6\x7c\xc9\x33\x78\x81\x06\x00\x00\x7c\xa7\x2b\x78",
-        ],
+        "Intel 80386": "intel_80386.yar",
+        "x86-64": "x86-64.yar",
+        "MIPS": "mips.yar",
+        "ARM": "arm.yar",
+        "PowerPC or cisco 4500": "powerpc.yar",
     }
 
     def __init__(self, in_file, out_file):
@@ -151,14 +129,22 @@ class UpxRecoveryTool:
     def is_upx(self):
         """ Method that looks for ASM signatures to identify a UPX executable """
 
-        # Instead of looking for the pattern in all the executable bytes, look for the
-        # UPX sigs at the EP. The code is not so beautiful but it'll be more efficient.
-        ep_bytes = self.get_ep_bytes(50)
+        rules_path = os.path.join("rules", self.upx_sigs[self.arch])
+        rules = yara.compile(rules_path)
+        matches = rules.match(self.in_file)
 
-        for sig in self.upx_sigs[self.arch]:
-            if re.match(sig, ep_bytes, re.DOTALL):
-                print("[i] File is UPX")
-                return True
+        if matches:
+            print("[i] File is UPX")
+
+            if len(matches) == 1:
+                if matches[0].rule == "upx_init_code_not_ep":
+                    print("[!] UPX entry point signature is in an address different from the entry point")
+
+            # 2 matches. EP code found in EP and other address
+            else:
+                print("[!] Multiple UPX entrypoint code found in the same file")
+
+            return True
 
         return False
 
@@ -208,25 +194,6 @@ class UpxRecoveryTool:
             raise CorruptedFileError("Patching bytes")
 
         self.buff[offset: offset + len(patch_bytes)] = patch_bytes
-
-    def get_ep_bytes(self, num_bytes):
-        """ Method to get the first 'num_bytes' of the executable's Entry Point. Used to apply UPX signatures """
-
-        ep_bytes = None
-        ep = self.elf.header['e_entry']
-
-        # Loop segments looking where the EP is
-        for seg in self.elf.iter_segments():
-            sh = seg.header
-            if ep > sh.p_vaddr and ep < sh.p_vaddr + sh.p_memsz:
-                start_off = ep - sh.p_vaddr
-
-                if start_off + num_bytes > self.file_size:
-                    raise CorruptedFileError("Walking through the program headers")
-
-                ep_bytes = seg.data()[start_off: start_off + num_bytes]
-
-        return ep_bytes
 
     def get_overlay_size(self):
         """ Method to check if it seems that the file contains overlay data after a proper PackHeader """

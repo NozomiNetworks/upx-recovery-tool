@@ -16,3 +16,4 @@ The script requires the following libraries listed on `requirements.txt`:
 
 - [`elftools`](https://github.com/eliben/pyelftools)
 - [`python-magic`](https://pypi.org/project/python-magic/)
+- [`yara-python`](https://github.com/VirusTotal/yara-python)

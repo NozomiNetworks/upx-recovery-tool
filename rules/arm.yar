@@ -3,7 +3,7 @@ import "elf"
 rule upx_entry_point {
 
 	meta:
-		author = "Nozomi Networks Lab"
+		author = "Nozomi Networks Labs"
 		description = "Rule to detect if an ELF file is packed with UPX based on its entry point."
 		
 	strings:
@@ -19,7 +19,7 @@ rule upx_entry_point {
 rule upx_init_code_not_ep {
 
 	meta:
-		author = "Nozomi Networks Lab"
+		author = "Nozomi Networks Labs"
 		description = "Rule to detect if an ELF file contains UPX code that should be at the entry point but its located anywhere else."
 		
 	strings:

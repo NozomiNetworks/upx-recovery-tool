@@ -1,2 +1,3 @@
 lief==0.12.1
 python-magic==0.4.27
+yara-python==4.1.0

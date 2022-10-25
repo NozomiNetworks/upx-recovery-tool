@@ -226,10 +226,8 @@ class UpxRecoveryTool:
 
         return overlay_size
 
-    def fix(self):
-        """ Method to fix all the (supported) modifications of UPX """
-
-        fixed = False
+    def init_tmp_buffers(self):
+        """ Method to initialize internal temporary buffers """
 
         self.tmp_folder = tempfile.TemporaryDirectory()
         self.tmp_file = os.path.join(self.tmp_folder.name, os.path.basename(self.out_file))
@@ -238,6 +236,12 @@ class UpxRecoveryTool:
         self.tmp_fd = open(self.tmp_file, "r+b")
         self.buff = mmap.mmap(self.tmp_fd.fileno(), 0)
 
+    def fix(self):
+        """ Method to fix all the (supported) modifications of UPX """
+
+        fixed = False
+
+        self.init_tmp_buffers()
         self.load_structs()
 
         fixed |= self.fix_l_info()

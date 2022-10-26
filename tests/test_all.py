@@ -47,7 +47,16 @@ class TestInitialChecks(unittest.TestCase):
 class TestFixes(unittest.TestCase):
 
     def test_fix_l_info(self):
-        pass
+        with tempfile.NamedTemporaryFile() as fd:
+            urt = UpxRecoveryTool("tests/samples/l_info", fd.name, False)
+            urt.fix()
+
+            for upx_sig_off in [0xEC, 0x1C1B, 0x2403, 0x240C]:
+                fd.seek(upx_sig_off, os.SEEK_SET)
+                sig = fd.read(4)
+                self.assertEqual(sig, b"UPX!", f"UPX! sig at 0x{upx_sig_off:X} wasn't fixed")
+
+            urt.close()
 
     def test_fix_p_info_filesize(self):
         pass

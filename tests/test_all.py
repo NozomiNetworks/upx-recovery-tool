@@ -20,16 +20,19 @@ class TestInitialChecks(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/overlay_8", fd.name, False)
             self.assertTrue(urt.is_upx(), "File not detected as UPX compressed")
+            urt.close()
 
         # Non-UPX file
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/no_upx", fd.name, True)
             self.assertFalse(urt.is_upx(), "File detected as UPX compressed")
+            urt.close()
 
         # UPX with hidden real EP
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/hidden_ep", fd.name, False)
             self.assertTrue(urt.is_upx(), "Hidden UPX EP was not detected")
+            urt.close()
 
     def test_get_overlay_size(self):
 
@@ -38,6 +41,7 @@ class TestInitialChecks(unittest.TestCase):
             urt.init_tmp_buffers()
             overlay_size = urt.get_overlay_size()
             self.assertEqual(overlay_size, 8, f"Wrong detected overlay size {overlay_size} (8 was expected)")
+            urt.close()
 
 
 class TestFixes(unittest.TestCase):

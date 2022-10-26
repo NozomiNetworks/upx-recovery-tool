@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -54,4 +55,14 @@ class TestFixes(unittest.TestCase):
         pass
 
     def test_fix_overlay(self):
-        pass
+        with tempfile.NamedTemporaryFile() as fd:
+            urt = UpxRecoveryTool("tests/samples/overlay_8", fd.name, False)
+            urt.fix()
+
+            pre_size = os.path.getsize("tests/samples/overlay_8")
+            post_size = os.path.getsize(fd.name)
+            size_diff = pre_size - post_size
+
+            self.assertEqual(size_diff, 8, f"Overlay fix error. {size_diff} bytes were removed instead of 8")
+
+            urt.close()

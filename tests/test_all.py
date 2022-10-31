@@ -39,8 +39,10 @@ class TestInitialChecks(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/overlay_8", fd.name, False)
             urt.init_tmp_buffers()
+
             overlay_size = urt.get_overlay_size()
             self.assertEqual(overlay_size, 8, f"Wrong detected overlay size {overlay_size} (8 was expected)")
+
             urt.close()
 
 
@@ -75,7 +77,6 @@ class TestFixes(unittest.TestCase):
             pre_size = os.path.getsize("tests/samples/overlay_8")
             post_size = os.path.getsize(fd.name)
             size_diff = pre_size - post_size
-
             self.assertEqual(size_diff, 8, f"Overlay fix error. {size_diff} bytes were removed instead of 8")
 
             urt.close()

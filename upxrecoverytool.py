@@ -364,7 +364,8 @@ class UpxRecoveryTool:
             self.tmp_fd.close()
 
         # Remove temporary file and dir
-        self.tmp_folder.cleanup()
+        if self.tmp_folder is not None:
+            self.tmp_folder.cleanup()
 
 
 if __name__ == "__main__":

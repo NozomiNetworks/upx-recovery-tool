@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 
@@ -19,30 +20,45 @@ class TestInitialChecks(unittest.TestCase):
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/overlay_8", fd.name, False)
             self.assertTrue(urt.is_upx(), "File not detected as UPX compressed")
+            urt.close()
 
         # Non-UPX file
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/no_upx", fd.name, True)
             self.assertFalse(urt.is_upx(), "File detected as UPX compressed")
+            urt.close()
 
         # UPX with hidden real EP
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/hidden_ep", fd.name, False)
             self.assertTrue(urt.is_upx(), "Hidden UPX EP was not detected")
+            urt.close()
 
     def test_get_overlay_size(self):
 
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/overlay_8", fd.name, False)
             urt.init_tmp_buffers()
+
             overlay_size = urt.get_overlay_size()
             self.assertEqual(overlay_size, 8, f"Wrong detected overlay size {overlay_size} (8 was expected)")
+
+            urt.close()
 
 
 class TestFixes(unittest.TestCase):
 
     def test_fix_l_info(self):
-        pass
+        with tempfile.NamedTemporaryFile() as fd:
+            urt = UpxRecoveryTool("tests/samples/l_info", fd.name, False)
+            urt.fix()
+
+            for upx_sig_off in [0xEC, 0x1C1B, 0x2403, 0x240C]:
+                fd.seek(upx_sig_off, os.SEEK_SET)
+                sig = fd.read(4)
+                self.assertEqual(sig, b"UPX!", f"UPX! sig at 0x{upx_sig_off:X} wasn't fixed")
+
+            urt.close()
 
     def test_fix_p_info_filesize(self):
         pass
@@ -54,4 +70,13 @@ class TestFixes(unittest.TestCase):
         pass
 
     def test_fix_overlay(self):
-        pass
+        with tempfile.NamedTemporaryFile() as fd:
+            urt = UpxRecoveryTool("tests/samples/overlay_8", fd.name, False)
+            urt.fix()
+
+            pre_size = os.path.getsize("tests/samples/overlay_8")
+            post_size = os.path.getsize(fd.name)
+            size_diff = pre_size - post_size
+            self.assertEqual(size_diff, 8, f"Overlay fix error. {size_diff} bytes were removed instead of 8")
+
+            urt.close()

@@ -24,4 +24,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest
-          pytest test_all.py --doctest-modules --junitxml=junit/test-results.xml
+          pytest tests/test_all.py --doctest-modules --junitxml=junit/test-results.xml

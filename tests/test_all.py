@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from upxrecoverytool import UpxRecoveryTool, UnsupportedFileError
+from upxrecoverytool import UpxRecoveryTool, UnsupportedFileError, p_info_s
 
 
 class TestInitialChecks(unittest.TestCase):
@@ -60,14 +60,20 @@ class TestFixes(unittest.TestCase):
 
             urt.close()
 
-    def test_fix_p_info_filesize(self):
-        pass
-
-    def test_fix_p_info_blocksize(self):
-        pass
-
     def test_fix_p_info_filesize_and_blocksize(self):
-        pass
+
+        with tempfile.NamedTemporaryFile() as fd:
+            urt = UpxRecoveryTool("tests/samples/p_info_0", fd.name, False)
+            urt.fix()
+
+            fd.seek(0xf4, os.SEEK_SET)
+            fixed_p_info = p_info_s(fd.read(12))
+            self.assertEqual(fixed_p_info.p_blocksize, b"\x38\x49\x00\x00", f"Error fixing p_info.p_blocksize. \
+                                38490000 expected but {fixed_p_info.p_blocksize.hex()} was read")
+            self.assertEqual(fixed_p_info.p_filesize, b"\x38\x49\x00\x00", f"Error fixing p_info.p_blocksize. \
+                                38490000 expected but {fixed_p_info.p_filesize.hex()} was read")
+
+            urt.close()
 
     def test_fix_overlay(self):
         with tempfile.NamedTemporaryFile() as fd:

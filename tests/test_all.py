@@ -75,6 +75,20 @@ class TestFixes(unittest.TestCase):
 
             urt.close()
 
+    def test_fix_p_info_sizes_mismatch(self):
+
+        with tempfile.NamedTemporaryFile() as fd:
+            urt = UpxRecoveryTool("tests/samples/p_info_size_mismatch", fd.name, False)
+            urt.fix()
+
+            fd.seek(0xf4, os.SEEK_SET)
+            fixed_p_info = p_info_s(fd.read(12))
+            self.assertEqual(fixed_p_info.p_blocksize, fixed_p_info.p_filesize,
+                             (f"Error fixing p_info structure. p_blocksize ({fixed_p_info.p_blocksize.hex()}) and "
+                              f"p_filesize ({fixed_p_info.p_filesize.hex()})"))
+
+            urt.close()
+
     def test_fix_overlay(self):
         with tempfile.NamedTemporaryFile() as fd:
             urt = UpxRecoveryTool("tests/samples/overlay_8", fd.name, False)
